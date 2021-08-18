@@ -227,7 +227,7 @@ impl TcpStream {
     /// [`std::net::TcpStream`]: std::net::TcpStream
     /// [`set_nonblocking`]: fn@std::net::TcpStream::set_nonblocking
     pub fn into_std(self) -> io::Result<std::net::TcpStream> {
-        #[cfg(unix)]
+        #[cfg(any(unix, target_env = "sgx"))]
         {
             use std::os::unix::io::{FromRawFd, IntoRawFd};
             self.io
@@ -1129,7 +1129,7 @@ impl TcpStream {
             unsafe { mio::net::TcpSocket::from_raw_socket(self.as_raw_socket()) }
         }
 
-        #[cfg(unix)]
+        #[cfg(any(unix, target_env = "sgx"))]
         {
             use std::os::unix::io::{AsRawFd, FromRawFd};
             unsafe { mio::net::TcpSocket::from_raw_fd(self.as_raw_fd()) }
@@ -1303,7 +1303,7 @@ impl fmt::Debug for TcpStream {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, target_env = "sgx"))]
 mod sys {
     use super::TcpStream;
     use std::os::unix::prelude::*;
