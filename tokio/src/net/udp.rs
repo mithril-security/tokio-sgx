@@ -234,7 +234,7 @@ impl UdpSocket {
     /// [`std::net::UdpSocket`]: std::net::UdpSocket
     /// [`set_nonblocking`]: fn@std::net::UdpSocket::set_nonblocking
     pub fn into_std(self) -> io::Result<std::net::UdpSocket> {
-        #[cfg(unix)]
+        #[cfg(any(unix, target_env = "sgx"))]
         {
             use std::os::unix::io::{FromRawFd, IntoRawFd};
             self.io

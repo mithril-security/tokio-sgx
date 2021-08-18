@@ -1,15 +1,34 @@
-use std::sync::{self, MutexGuard, TryLockError};
+use std::sync::{self, TryLockError};
+
+#[cfg(not(target_env = "sgx"))]
+use std::sync::MutexGuard;
+
+#[cfg(target_env = "sgx")]
+use std::sync::SgxMutexGuard as MutexGuard;
+
 
 /// Adapter for `std::Mutex` that removes the poisoning aspects
 // from its api
+#[cfg(not(target_env = "sgx"))]
 #[derive(Debug)]
 pub(crate) struct Mutex<T: ?Sized>(sync::Mutex<T>);
 
+#[cfg(target_env = "sgx")]
+#[derive(Debug)]
+pub(crate) struct Mutex<T: ?Sized>(sync::SgxMutex<T>);
+
 #[allow(dead_code)]
 impl<T> Mutex<T> {
+    #[cfg(not(target_env = "sgx"))]
     #[inline]
     pub(crate) fn new(t: T) -> Mutex<T> {
         Mutex(sync::Mutex::new(t))
+    }
+
+    #[cfg(target_env = "sgx")]
+    #[inline]
+    pub(crate) fn new(t: T) -> Mutex<T> {
+        Mutex(sync::SgxMutex::new(t))
     }
 
     #[inline]
