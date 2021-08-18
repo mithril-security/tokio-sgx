@@ -4,7 +4,7 @@ use std::fmt;
 use std::io;
 use std::net::SocketAddr;
 
-#[cfg(unix)]
+#[cfg(any(unix, target_env = "sgx"))]
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
@@ -236,10 +236,10 @@ impl TcpSocket {
     ///     Ok(())
     /// }
     /// ```
-    #[cfg(all(unix, not(target_os = "solaris"), not(target_os = "illumos")))]
+    #[cfg(all(any(unix, target_env = "sgx"), not(target_os = "solaris"), not(target_os = "illumos")))]
     #[cfg_attr(
         docsrs,
-        doc(cfg(all(unix, not(target_os = "solaris"), not(target_os = "illumos"))))
+        doc(cfg(all(any(unix, target_env = "sgx"), not(target_os = "solaris"), not(target_os = "illumos"))))
     )]
     pub fn set_reuseport(&self, reuseport: bool) -> io::Result<()> {
         self.inner.set_reuseport(reuseport)
@@ -271,10 +271,10 @@ impl TcpSocket {
     ///     Ok(())
     /// }
     /// ```
-    #[cfg(all(unix, not(target_os = "solaris"), not(target_os = "illumos")))]
+    #[cfg(all(any(unix, target_env = "sgx"), not(target_os = "solaris"), not(target_os = "illumos")))]
     #[cfg_attr(
         docsrs,
-        doc(cfg(all(unix, not(target_os = "solaris"), not(target_os = "illumos"))))
+        doc(cfg(all(any(unix, target_env = "sgx"), not(target_os = "solaris"), not(target_os = "illumos"))))
     )]
     pub fn reuseport(&self) -> io::Result<bool> {
         self.inner.get_reuseport()
@@ -508,7 +508,7 @@ impl TcpSocket {
     /// }
     /// ```
     pub fn from_std_stream(std_stream: std::net::TcpStream) -> TcpSocket {
-        #[cfg(unix)]
+        #[cfg(any(unix, target_env = "sgx"))]
         {
             use std::os::unix::io::{FromRawFd, IntoRawFd};
 
@@ -532,14 +532,14 @@ impl fmt::Debug for TcpSocket {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, target_env = "sgx"))]
 impl AsRawFd for TcpSocket {
     fn as_raw_fd(&self) -> RawFd {
         self.inner.as_raw_fd()
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, target_env = "sgx"))]
 impl FromRawFd for TcpSocket {
     /// Converts a `RawFd` to a `TcpSocket`.
     ///
@@ -553,7 +553,7 @@ impl FromRawFd for TcpSocket {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, target_env = "sgx"))]
 impl IntoRawFd for TcpSocket {
     fn into_raw_fd(self) -> RawFd {
         self.inner.into_raw_fd()

@@ -59,9 +59,13 @@ pub(crate) mod sync {
         Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, WaitTimeoutResult,
     };
 
-    #[cfg(not(feature = "parking_lot"))]
+    #[cfg(all(not(feature = "parking_lot"), not(target_env = "sgx")))]
     #[allow(unused_imports)]
     pub(crate) use std::sync::{Condvar, MutexGuard, RwLock, RwLockReadGuard, WaitTimeoutResult};
+
+    #[cfg(all(not(feature = "parking_lot"), target_env = "sgx"))]
+    #[allow(unused_imports)]
+    pub(crate) use std::sync::{SgxCondvar as Condvar, SgxMutexGuard as MutexGuard, SgxRwLock as RwLock, SgxRwLockReadGuard as RwLockReadGuard, WaitTimeoutResult};
 
     #[cfg(not(feature = "parking_lot"))]
     pub(crate) use crate::loom::std::mutex::Mutex;

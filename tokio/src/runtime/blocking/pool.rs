@@ -35,6 +35,7 @@ struct Inner {
     thread_name: ThreadNameFn,
 
     /// Spawned thread stack size
+    #[cfg(not(target_env = "sgx"))]
     stack_size: Option<usize>,
 
     /// Call after a thread starts
@@ -108,7 +109,10 @@ impl BlockingPool {
                     }),
                     condvar: Condvar::new(),
                     thread_name: builder.thread_name.clone(),
+
+                    #[cfg(not(target_env = "sgx"))]
                     stack_size: builder.thread_stack_size,
+                    
                     after_start: builder.after_start.clone(),
                     before_stop: builder.before_stop.clone(),
                     thread_cap,
@@ -224,6 +228,7 @@ impl Spawner {
         Ok(())
     }
 
+    #[cfg(not(target_env = "sgx"))]
     fn spawn_thread(
         &self,
         shutdown_tx: shutdown::Sender,
@@ -235,6 +240,27 @@ impl Spawner {
         if let Some(stack_size) = self.inner.stack_size {
             builder = builder.stack_size(stack_size);
         }
+
+        let rt = rt.clone();
+
+        builder
+            .spawn(move || {
+                // Only the reference should be moved into the closure
+                let _enter = crate::runtime::context::enter(rt.clone());
+                rt.blocking_spawner.inner.run(id);
+                drop(shutdown_tx);
+            })
+            .unwrap()
+    }
+
+    #[cfg(target_env = "sgx")]
+    fn spawn_thread(
+        &self,
+        shutdown_tx: shutdown::Sender,
+        rt: &Handle,
+        id: usize,
+    ) -> thread::JoinHandle<()> {
+        let builder = thread::Builder::new().name((self.inner.thread_name)());
 
         let rt = rt.clone();
 

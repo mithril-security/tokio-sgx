@@ -31,7 +31,7 @@ impl UCred {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "android", target_os = "openbsd"))]
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "openbsd", target_env = "sgx"))]
 pub(crate) use self::impl_linux::get_peer_cred;
 
 #[cfg(any(target_os = "netbsd"))]
