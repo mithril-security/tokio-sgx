@@ -1,0 +1,49 @@
+[package]
+name = "template"
+version = "1.0.0"
+authors = ["The Teaclave Authors"]
+edition = "2018"
+
+[lib]
+name = "sample" # Library name. If you change this, please reflect those changes in the Makefile on the variable ENCLAVE_CARGO_LIB
+crate-type = ["staticlib"] 
+
+[features]
+# TODO: In the next release, make this non-default.
+default = ["std"]
+alloc = []
+std = ["alloc"]
+# TODO: In the next release, remove this.
+trust_anchor_util = ["std"]
+
+[target.'cfg(not(target_env = "sgx"))'.dependencies] # You can remove what you don't need, except types and tstd
+sgx_types = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_types" }
+sgx_tstd = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_tstd", features = ["backtrace"] }
+sgx_tcrypto = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_tcrypto" }
+sgx_trts = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_trts" }
+sgx_tseal = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_tseal" }
+sgx_serialize = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_serialize" }
+sgx_alloc = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_alloc" }
+sgx_libc = { path = "/root/dev/incubator-teaclave-sgx-sdk/sgx_libc" }
+
+[dependencies]
+tokio = { path = "../../../tokio", default-features = false, features = ["bytes", "default", "io-std", "io-util", "libc", "macros", "memchr", "mio", "net", "rt", "sync", "time", "tokio-macros" ]}
+tokio-stream = { path = "../../../tokio-stream", features = ["default", "time"] }
+tokio-util = { path = "../../../tokio-util", features = ["default", "codec"] }
+tokio-test = { path = "../../../tokio-test" }
+futures = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", features = ["alloc", "default", "std" ]}
+bytes = { version = "1.0.1" }
+pin-project-lite = "0.2.0"
+
+[patch.'https://github.com/apache/teaclave-sgx-sdk.git']
+
+[patch.crates-io]
+mio = { git = "https://github.com/mithril-security/mio-sgx.git", branch = "sgx-mio", features = ['default', 'net', 'os-ext', 'os-poll','tcp','udp','uds']}
+futures-channel = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", default-features = false, features = ["alloc", "default", "std" ]}
+futures-core = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", default-features = false, features = ["alloc", "default", "std" ]}
+futures-sink = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", default-features = false, features = ["alloc", "default", "std" ]}
+futures-task = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", default-features = false, features = ["alloc"]}
+futures-util = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", default-features = false, features = ["alloc"]}
+futures = { git = "https://github.com/mithril-security/futures-sgx.git", branch = "futures-sgx", features = ["alloc", "default", "std" ]}
+
+[workspace]
