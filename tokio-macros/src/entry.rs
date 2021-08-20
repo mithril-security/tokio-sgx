@@ -315,7 +315,7 @@ fn parse_knobs(
 
     let header = if is_test {
         quote! {
-            #[::core::prelude::v1::test]
+            //#[::core::prelude::v1::test]
         }
     } else {
         quote! {}
