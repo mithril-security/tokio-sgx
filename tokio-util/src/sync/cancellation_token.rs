@@ -3,7 +3,13 @@
 pub(crate) mod guard;
 
 use crate::loom::sync::atomic::AtomicUsize;
+
+#[cfg(not(target_env = "sgx"))]
 use crate::loom::sync::Mutex;
+
+#[cfg(target_env = "sgx")]
+use crate::loom::sync::SgxMutex as Mutex;
+
 use crate::sync::intrusive_double_linked_list::{LinkedList, ListNode};
 
 use core::future::Future;

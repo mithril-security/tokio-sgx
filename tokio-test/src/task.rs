@@ -6,7 +6,14 @@ use std::future::Future;
 use std::mem;
 use std::ops;
 use std::pin::Pin;
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
+
+#[cfg(not(target_env = "sgx"))]
+use std::sync::{Condvar, Mutex};
+
+#[cfg(target_env = "sgx")]
+use std::sync::{SgxCondvar as Condvar, SgxMutex as Mutex};
+
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
 use tokio_stream::Stream;
