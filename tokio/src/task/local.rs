@@ -211,10 +211,10 @@ cfg_rt! {
     /// [`task::spawn_local`]: fn@spawn_local
     /// [`mpsc`]: mod@crate::sync::mpsc
     pub struct LocalSet {
-        /// Current scheduler tick
+        /// Current scheduler tick.
         tick: Cell<u8>,
 
-        /// State available from thread-local
+        /// State available from thread-local.
         context: Context,
 
         /// This type should not be Send.
@@ -222,7 +222,7 @@ cfg_rt! {
     }
 }
 
-/// State available from the thread-local
+/// State available from the thread-local.
 struct Context {
     /// Collection of all active tasks spawned onto this executor.
     owned: LocalOwnedTasks<Arc<Shared>>,
@@ -236,10 +236,10 @@ struct Context {
 
 /// LocalSet state shared between threads.
 struct Shared {
-    /// Remote run queue sender
+    /// Remote run queue sender.
     queue: Mutex<Option<VecDeque<task::Notified<Arc<Shared>>>>>,
 
-    /// Wake the `LocalSet` task
+    /// Wake the `LocalSet` task.
     waker: AtomicWaker,
 }
 
@@ -286,7 +286,7 @@ cfg_rt! {
     ///     }).await;
     /// }
     /// ```
-    #[cfg_attr(tokio_track_caller, track_caller)]
+    #[track_caller]
     pub fn spawn_local<F>(future: F) -> JoinHandle<F::Output>
     where
         F: Future + 'static,
@@ -295,33 +295,28 @@ cfg_rt! {
         spawn_local_inner(future, None)
     }
 
+
+    #[track_caller]
     pub(super) fn spawn_local_inner<F>(future: F, name: Option<&str>) -> JoinHandle<F::Output>
     where F: Future + 'static,
           F::Output: 'static
     {
-        let future = crate::util::trace::task(future, "local", name);
         CURRENT.with(|maybe_cx| {
             let cx = maybe_cx
                 .expect("`spawn_local` called from outside of a `task::LocalSet`");
 
-            let (handle, notified) = cx.owned.bind(future, cx.shared.clone());
-
-            if let Some(notified) = notified {
-                cx.shared.schedule(notified);
-            }
-
-            handle
+            cx.spawn(future, name)
         })
     }
 }
 
-/// Initial queue capacity
+/// Initial queue capacity.
 const INITIAL_CAPACITY: usize = 64;
 
 /// Max number of tasks to poll per tick.
 const MAX_TASKS_PER_TICK: usize = 61;
 
-/// How often it check the remote queue first
+/// How often it check the remote queue first.
 const REMOTE_FIRST_INTERVAL: u8 = 31;
 
 impl LocalSet {
@@ -377,22 +372,13 @@ impl LocalSet {
     /// }
     /// ```
     /// [`spawn_local`]: fn@spawn_local
-    #[cfg_attr(tokio_track_caller, track_caller)]
+    #[track_caller]
     pub fn spawn_local<F>(&self, future: F) -> JoinHandle<F::Output>
     where
         F: Future + 'static,
         F::Output: 'static,
     {
-        let future = crate::util::trace::task(future, "local", None);
-
-        let (handle, notified) = self.context.owned.bind(future, self.context.shared.clone());
-
-        if let Some(notified) = notified {
-            self.context.shared.schedule(notified);
-        }
-
-        self.context.shared.waker.wake();
-        handle
+        self.spawn_named(future, None)
     }
 
     /// Runs a future to completion on the provided runtime, driving any local
@@ -466,7 +452,7 @@ impl LocalSet {
         rt.block_on(self.run_until(future))
     }
 
-    /// Run a future to completion on the local set, returning its output.
+    /// Runs a future to completion on the local set, returning its output.
     ///
     /// This returns a future that runs the given future with a local set,
     /// allowing it to call [`spawn_local`] to spawn additional `!Send` futures.
@@ -505,7 +491,28 @@ impl LocalSet {
         run_until.await
     }
 
-    /// Tick the scheduler, returning whether the local future needs to be
+    pub(in crate::task) fn spawn_named<F>(
+        &self,
+        future: F,
+        name: Option<&str>,
+    ) -> JoinHandle<F::Output>
+    where
+        F: Future + 'static,
+        F::Output: 'static,
+    {
+        let handle = self.context.spawn(future, name);
+
+        // Because a task was spawned from *outside* the `LocalSet`, wake the
+        // `LocalSet` future to execute the new task, if it hasn't been woken.
+        //
+        // Spawning via the free fn `spawn` does not require this, as it can
+        // only be called from *within* a future executing on the `LocalSet` —
+        // in that case, the `LocalSet` must already be awake.
+        self.context.shared.waker.wake();
+        handle
+    }
+
+    /// Ticks the scheduler, returning whether the local future needs to be
     /// notified again.
     fn tick(&self) -> bool {
         for _ in 0..MAX_TASKS_PER_TICK {
@@ -618,6 +625,28 @@ impl Drop for LocalSet {
 
             assert!(self.context.owned.is_empty());
         });
+    }
+}
+
+// === impl Context ===
+
+impl Context {
+    #[track_caller]
+    fn spawn<F>(&self, future: F, name: Option<&str>) -> JoinHandle<F::Output>
+    where
+        F: Future + 'static,
+        F::Output: 'static,
+    {
+        let id = crate::runtime::task::Id::next();
+        let future = crate::util::trace::task(future, "local", name, id.as_u64());
+
+        let (handle, notified) = self.owned.bind(future, self.shared.clone(), id);
+
+        if let Some(notified) = notified {
+            self.shared.schedule(notified);
+        }
+
+        handle
     }
 }
 

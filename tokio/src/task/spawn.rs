@@ -121,7 +121,7 @@ cfg_rt! {
     /// ```text
     /// error[E0391]: cycle detected when processing `main`
     /// ```
-    #[cfg_attr(tokio_track_caller, track_caller)]
+    #[track_caller]
     pub fn spawn<T>(future: T) -> JoinHandle<T::Output>
     where
         T: Future + Send + 'static,
@@ -136,14 +136,16 @@ cfg_rt! {
         }
     }
 
-    #[cfg_attr(tokio_track_caller, track_caller)]
+    #[track_caller]
     pub(super) fn spawn_inner<T>(future: T, name: Option<&str>) -> JoinHandle<T::Output>
     where
         T: Future + Send + 'static,
         T::Output: Send + 'static,
     {
-        let spawn_handle = crate::runtime::context::spawn_handle().expect(CONTEXT_MISSING_ERROR);
-        let task = crate::util::trace::task(future, "task", name);
-        spawn_handle.spawn(task)
+        use crate::runtime::{task, context};
+        let id = task::Id::next();
+        let spawn_handle = context::spawn_handle().expect(CONTEXT_MISSING_ERROR);
+        let task = crate::util::trace::task(future, "task", name, id.as_u64());
+        spawn_handle.spawn(task, id)
     }
 }

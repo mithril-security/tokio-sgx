@@ -10,7 +10,6 @@
     unreachable_pub
 )]
 #![deny(unused_must_use)]
-#![cfg_attr(docsrs, deny(rustdoc::broken_intra_doc_links))]
 #![doc(test(
     no_crate_inject,
     attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))
@@ -115,7 +114,7 @@
 //! The [`tokio::sync`] module contains synchronization primitives to use when
 //! needing to communicate or share data. These include:
 //!
-//! * channels ([`oneshot`], [`mpsc`], and [`watch`]), for sending values
+//! * channels ([`oneshot`], [`mpsc`], [`watch`], and [`broadcast`]), for sending values
 //!   between tasks,
 //! * a non-blocking [`Mutex`], for controlling access to a shared, mutable
 //!   value,
@@ -131,6 +130,7 @@
 //! [`oneshot`]: crate::sync::oneshot
 //! [`mpsc`]: crate::sync::mpsc
 //! [`watch`]: crate::sync::watch
+//! [`broadcast`]: crate::sync::broadcast
 //!
 //! The [`tokio::time`] module provides utilities for tracking time and
 //! scheduling work. This includes functions for setting [timeouts][timeout] for
@@ -161,8 +161,8 @@
 //! [`tokio::runtime`]: crate::runtime
 //! [`Builder`]: crate::runtime::Builder
 //! [`Runtime`]: crate::runtime::Runtime
-//! [rt]: runtime/index.html#basic-scheduler
-//! [rt-multi-thread]: runtime/index.html#threaded-scheduler
+//! [rt]: runtime/index.html#current-thread-scheduler
+//! [rt-multi-thread]: runtime/index.html#multi-thread-scheduler
 //! [rt-features]: runtime/index.html#runtime-scheduler
 //!
 //! ## CPU-bound tasks and blocking code
@@ -308,7 +308,7 @@
 //! Beware though that this will pull in many extra dependencies that you may not
 //! need.
 //!
-//! - `full`: Enables all Tokio public API features listed below except `test-util`.
+//! - `full`: Enables all features listed below except `test-util` and `tracing`.
 //! - `rt`: Enables `tokio::spawn`, the basic (current thread) scheduler,
 //!         and non-scheduler utilities.
 //! - `rt-multi-thread`: Enables the heavier, multi-threaded, work-stealing scheduler.
@@ -341,14 +341,57 @@
 //!
 //! ### Unstable features
 //!
-//! These feature flags enable **unstable** features. The public API may break in 1.x
-//! releases. To enable these features, the `--cfg tokio_unstable` must be passed to
-//! `rustc` when compiling. This is easiest done using the `RUSTFLAGS` env variable:
-//! `RUSTFLAGS="--cfg tokio_unstable"`.
+//! Some feature flags are only available when specifying the `tokio_unstable` flag:
 //!
 //! - `tracing`: Enables tracing events.
 //!
+//! Likewise, some parts of the API are only available with the same flag:
+//!
+//! - [`task::JoinSet`]
+//! - [`task::Builder`]
+//!  
+//! This flag enables **unstable** features. The public API of these features
+//! may break in 1.x releases. To enable these features, the `--cfg
+//! tokio_unstable` argument must be passed to `rustc` when compiling. This
+//! serves to explicitly opt-in to features which may break semver conventions,
+//! since Cargo [does not yet directly support such opt-ins][unstable features].
+//!
+//! You can specify it in your project's `.cargo/config.toml` file:
+//!
+//! ```toml
+//! [build]
+//! rustflags = ["--cfg", "tokio_unstable"]
+//! ```
+//!
+//! Alternatively, you can specify it with an environment variable:
+//!
+//! ```sh
+//! ## Many *nix shells:
+//! export RUSTFLAGS="--cfg tokio_unstable"
+//! cargo build
+//! ```
+//!
+//! ```powershell
+//! ## Windows PowerShell:
+//! $Env:RUSTFLAGS="--cfg tokio_unstable"
+//! cargo build
+//! ```
+//!
+//! [unstable features]: https://internals.rust-lang.org/t/feature-request-unstable-opt-in-non-transitive-crate-features/16193#why-not-a-crate-feature-2
 //! [feature flags]: https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section
+
+// Test that pointer width is compatible. This asserts that e.g. usize is at
+// least 32 bits, which a lot of components in Tokio currently assumes.
+//
+// TODO: improve once we have MSRV access to const eval to make more flexible.
+#[cfg(not(any(
+    target_pointer_width = "32",
+    target_pointer_width = "64",
+    target_pointer_width = "128"
+)))]
+compile_error! {
+    "Tokio requires the platform pointer width to be 32, 64, or 128 bits"
+}
 
 // Includes re-exports used by macros.
 //
@@ -471,7 +514,7 @@ pub(crate) use self::doc::winapi;
 
 #[cfg(all(not(docsrs), windows, feature = "net"))]
 #[allow(unused)]
-pub(crate) use ::winapi;
+pub(crate) use winapi;
 
 cfg_macros! {
     /// Implementation detail of the `select!` macro. This macro is **not**
@@ -479,6 +522,12 @@ cfg_macros! {
     /// change.
     #[doc(hidden)]
     pub use tokio_macros::select_priv_declare_output_enum;
+
+    /// Implementation detail of the `select!` macro. This macro is **not**
+    /// intended to be used as part of the public API and is permitted to
+    /// change.
+    #[doc(hidden)]
+    pub use tokio_macros::select_priv_clean_pattern;
 
     cfg_rt! {
         #[cfg(feature = "rt-multi-thread")]

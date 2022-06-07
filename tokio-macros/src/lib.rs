@@ -5,7 +5,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![cfg_attr(docsrs, deny(rustdoc::broken_intra_doc_links))]
 #![doc(test(
     no_crate_inject,
     attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))
@@ -27,9 +26,6 @@ use proc_macro::TokenStream;
 /// helps set up a `Runtime` without requiring the user to use
 /// [Runtime](../tokio/runtime/struct.Runtime.html) or
 /// [Builder](../tokio/runtime/struct.Builder.html) directly.
-/// The function executes in the context of a
-/// [LocalSet](../tokio/task/struct.LocalSet.html), allowing calls to
-/// [spawn_local](../tokio/task/fn.spawn_local.html) without further setup.
 ///
 /// Note: This macro is designed to be simplistic and targets applications that
 /// do not require a complex setup. If the provided functionality is not
@@ -87,14 +83,13 @@ use proc_macro::TokenStream;
 ///
 /// ```rust
 /// fn main() {
-///     let ls = tokio::task::LocalSet::new();
-///     let rt = tokio::runtime::Builder::new_multi_thread()
+///     tokio::runtime::Builder::new_multi_thread()
 ///         .enable_all()
 ///         .build()
-///         .unwrap();
-///     ls.block_on(&rt, async {
-///         println!("Hello world");
-///     })
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
 /// }
 /// ```
 ///
@@ -113,14 +108,13 @@ use proc_macro::TokenStream;
 ///
 /// ```rust
 /// fn main() {
-///     let ls = tokio::task::LocalSet::new();
-///     let rt = tokio::runtime::Builder::new_current_thread()
+///     tokio::runtime::Builder::new_current_thread()
 ///         .enable_all()
 ///         .build()
-///         .unwrap();
-///     ls.block_on(&rt, async {
-///         println!("Hello world");
-///     })
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
 /// }
 /// ```
 ///
@@ -137,15 +131,14 @@ use proc_macro::TokenStream;
 ///
 /// ```rust
 /// fn main() {
-///     let ls = tokio::task::LocalSet::new();
-///     let rt = tokio::runtime::Builder::new_multi_thread()
+///     tokio::runtime::Builder::new_multi_thread()
 ///         .worker_threads(2)
 ///         .enable_all()
 ///         .build()
-///         .unwrap();
-///     ls.block_on(&rt, async {
-///         println!("Hello world");
-///     })
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
 /// }
 /// ```
 ///
@@ -162,26 +155,45 @@ use proc_macro::TokenStream;
 ///
 /// ```rust
 /// fn main() {
-///     let ls = tokio::task::LocalSet::new();
-///     let rt = tokio::runtime::Builder::new_current_thread()
+///     tokio::runtime::Builder::new_current_thread()
 ///         .enable_all()
 ///         .start_paused(true)
 ///         .build()
-///         .unwrap();
-///     ls.block_on(&rt, async {
-///         println!("Hello world");
-///     })
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
 /// }
 /// ```
 ///
 /// Note that `start_paused` requires the `test-util` feature to be enabled.
 ///
-/// ### NOTE:
+/// ### Rename package
 ///
-/// If you rename the Tokio crate in your dependencies this macro will not work.
-/// If you must rename the current version of Tokio because you're also using an
-/// older version of Tokio, you _must_ make the current version of Tokio
-/// available as `tokio` in the module where this macro is expanded.
+/// ```rust
+/// use tokio as tokio1;
+///
+/// #[tokio1::main(crate = "tokio1")]
+/// async fn main() {
+///     println!("Hello world");
+/// }
+/// ```
+///
+/// Equivalent code not using `#[tokio::main]`
+///
+/// ```rust
+/// use tokio as tokio1;
+///
+/// fn main() {
+///     tokio1::runtime::Builder::new_multi_thread()
+///         .enable_all()
+///         .build()
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
+/// }
+/// ```
 #[proc_macro_attribute]
 #[cfg(not(test))] // Work around for rust-lang/rust#62127
 pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -211,23 +223,42 @@ pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```rust
 /// fn main() {
-///     let ls = tokio::task::LocalSet::new();
-///     let rt = tokio::runtime::Builder::new_current_thread()
+///     tokio::runtime::Builder::new_current_thread()
 ///         .enable_all()
 ///         .build()
-///         .unwrap();
-///     ls.block_on(&rt, async {
-///         println!("Hello world");
-///     })
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
 /// }
 /// ```
 ///
-/// ### NOTE:
+/// ### Rename package
 ///
-/// If you rename the Tokio crate in your dependencies this macro will not work.
-/// If you must rename the current version of Tokio because you're also using an
-/// older version of Tokio, you _must_ make the current version of Tokio
-/// available as `tokio` in the module where this macro is expanded.
+/// ```rust
+/// use tokio as tokio1;
+///
+/// #[tokio1::main(crate = "tokio1")]
+/// async fn main() {
+///     println!("Hello world");
+/// }
+/// ```
+///
+/// Equivalent code not using `#[tokio::main]`
+///
+/// ```rust
+/// use tokio as tokio1;
+///
+/// fn main() {
+///     tokio1::runtime::Builder::new_multi_thread()
+///         .enable_all()
+///         .build()
+///         .unwrap()
+///         .block_on(async {
+///             println!("Hello world");
+///         })
+/// }
+/// ```
 #[proc_macro_attribute]
 #[cfg(not(test))] // Work around for rust-lang/rust#62127
 pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -269,12 +300,16 @@ pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Note that `start_paused` requires the `test-util` feature to be enabled.
 ///
-/// ### NOTE:
+/// ### Rename package
 ///
-/// If you rename the Tokio crate in your dependencies this macro will not work.
-/// If you must rename the current version of Tokio because you're also using an
-/// older version of Tokio, you _must_ make the current version of Tokio
-/// available as `tokio` in the module where this macro is expanded.
+/// ```rust
+/// use tokio as tokio1;
+///
+/// #[tokio1::test(crate = "tokio1")]
+/// async fn my_test() {
+///     println!("Hello world");
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn test(args: TokenStream, item: TokenStream) -> TokenStream {
     entry::test(args, item, true)
@@ -290,13 +325,6 @@ pub fn test(args: TokenStream, item: TokenStream) -> TokenStream {
 ///     assert!(true);
 /// }
 /// ```
-///
-/// ### NOTE:
-///
-/// If you rename the Tokio crate in your dependencies this macro will not work.
-/// If you must rename the current version of Tokio because you're also using an
-/// older version of Tokio, you _must_ make the current version of Tokio
-/// available as `tokio` in the module where this macro is expanded.
 #[proc_macro_attribute]
 pub fn test_rt(args: TokenStream, item: TokenStream) -> TokenStream {
     entry::test(args, item, false)
@@ -336,4 +364,12 @@ pub fn test_fail(_args: TokenStream, _item: TokenStream) -> TokenStream {
 #[doc(hidden)]
 pub fn select_priv_declare_output_enum(input: TokenStream) -> TokenStream {
     select::declare_output_enum(input)
+}
+
+/// Implementation detail of the `select!` macro. This macro is **not** intended
+/// to be used as part of the public API and is permitted to change.
+#[proc_macro]
+#[doc(hidden)]
+pub fn select_priv_clean_pattern(input: TokenStream) -> TokenStream {
+    select::clean_pattern_macro(input)
 }

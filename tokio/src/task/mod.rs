@@ -291,6 +291,11 @@ cfg_rt! {
     mod yield_now;
     pub use yield_now::yield_now;
 
+    cfg_unstable! {
+        mod consume_budget;
+        pub use consume_budget::consume_budget;
+    }
+
     mod local;
     pub use local::{spawn_local, LocalSet};
 
@@ -299,6 +304,13 @@ cfg_rt! {
 
     mod unconstrained;
     pub use unconstrained::{unconstrained, Unconstrained};
+
+    cfg_unstable! {
+        pub mod join_set;
+        #[doc(inline)]
+        pub use join_set::JoinSet;
+        pub use crate::runtime::task::{Id, AbortHandle};
+    }
 
     cfg_trace! {
         mod builder;

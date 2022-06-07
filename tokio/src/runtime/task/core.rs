@@ -13,7 +13,7 @@ use crate::future::Future;
 use crate::loom::cell::UnsafeCell;
 use crate::runtime::task::raw::{self, Vtable};
 use crate::runtime::task::state::State;
-use crate::runtime::task::Schedule;
+use crate::runtime::task::{Id, Schedule};
 use crate::util::linked_list;
 
 use std::pin::Pin;
@@ -44,22 +44,25 @@ pub(super) struct CoreStage<T: Future> {
 ///
 /// Holds the future or output, depending on the stage of execution.
 pub(super) struct Core<T: Future, S> {
-    /// Scheduler used to drive this future
+    /// Scheduler used to drive this future.
     pub(super) scheduler: S,
 
-    /// Either the future or the output
+    /// Either the future or the output.
     pub(super) stage: CoreStage<T>,
+
+    /// The task's ID, used for populating `JoinError`s.
+    pub(super) task_id: Id,
 }
 
 /// Crate public as this is also needed by the pool.
 #[repr(C)]
 pub(crate) struct Header {
-    /// Task state
+    /// Task state.
     pub(super) state: State,
 
     pub(super) owned: UnsafeCell<linked_list::Pointers<Header>>,
 
-    /// Pointer to next task, used with the injection queue
+    /// Pointer to next task, used with the injection queue.
     pub(super) queue_next: UnsafeCell<Option<NonNull<Header>>>,
 
     /// Table of function pointers for executing actions on the task.
@@ -102,7 +105,7 @@ pub(super) enum Stage<T: Future> {
 impl<T: Future, S: Schedule> Cell<T, S> {
     /// Allocates a new task cell, containing the header, trailer, and core
     /// structures.
-    pub(super) fn new(future: T, scheduler: S, state: State) -> Box<Cell<T, S>> {
+    pub(super) fn new(future: T, scheduler: S, state: State, task_id: Id) -> Box<Cell<T, S>> {
         #[cfg(all(tokio_unstable, feature = "tracing"))]
         let id = future.id();
         Box::new(Cell {
@@ -120,6 +123,7 @@ impl<T: Future, S: Schedule> Cell<T, S> {
                 stage: CoreStage {
                     stage: UnsafeCell::new(Stage::Running(future)),
                 },
+                task_id,
             },
             trailer: Trailer {
                 waker: UnsafeCell::new(None),
@@ -133,7 +137,7 @@ impl<T: Future> CoreStage<T> {
         self.stage.with_mut(f)
     }
 
-    /// Poll the future
+    /// Polls the future.
     ///
     /// # Safety
     ///
@@ -169,7 +173,7 @@ impl<T: Future> CoreStage<T> {
         res
     }
 
-    /// Drop the future
+    /// Drops the future.
     ///
     /// # Safety
     ///
@@ -181,7 +185,7 @@ impl<T: Future> CoreStage<T> {
         }
     }
 
-    /// Store the task output
+    /// Stores the task output.
     ///
     /// # Safety
     ///
@@ -193,7 +197,7 @@ impl<T: Future> CoreStage<T> {
         }
     }
 
-    /// Take the task output
+    /// Takes the task output.
     ///
     /// # Safety
     ///
